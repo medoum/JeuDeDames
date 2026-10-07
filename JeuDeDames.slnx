@@ -1,0 +1,9 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/JeuDeDames.Core/JeuDeDames.Core.csproj" />
+    <Project Path="src/JeuDeDames.Web/JeuDeDames.Web.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/JeuDeDames.Core.Tests/JeuDeDames.Core.Tests.csproj" />
+  </Folder>
+</Solution>

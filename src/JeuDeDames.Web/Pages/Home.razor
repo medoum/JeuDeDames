@@ -1,0 +1,157 @@
+@page "/"
+@using JeuDeDames.Core
+
+<PageTitle>Jeu de dames</PageTitle>
+
+<main class="game">
+    <header>
+        <h1>Jeu de dames</h1>
+        <p class="status">@StatusText</p>
+    </header>
+
+    <div class="options">
+        <label>
+            Adversaire
+            <select @bind="_mode" disabled="@_thinking">
+                <option value="@Mode.Computer">Ordinateur</option>
+                <option value="@Mode.TwoPlayers">Deux joueurs</option>
+            </select>
+        </label>
+        @if (_mode == Mode.Computer)
+        {
+            <label>
+                Je joue
+                <select @bind="_humanColor" disabled="@_thinking">
+                    <option value="@PieceColor.White">Blancs</option>
+                    <option value="@PieceColor.Black">Noirs</option>
+                </select>
+            </label>
+            <label>
+                Niveau
+                <select @bind="_difficulty" disabled="@_thinking">
+                    <option value="@Difficulty.Easy">Facile</option>
+                    <option value="@Difficulty.Medium">Moyen</option>
+                    <option value="@Difficulty.Hard">Difficile</option>
+                </select>
+            </label>
+        }
+        <button @onclick="NewGame" disabled="@_thinking">Nouvelle partie</button>
+    </div>
+
+    <div class="board @(_thinking ? "thinking" : "")">
+        @foreach (var row in Axis)
+        {
+            @foreach (var col in Axis)
+            {
+                var square = new Square(row, col);
+                <div class="@CssFor(square)" @onclick="() => OnSquareClicked(square)">
+                    @if (square.IsDark)
+                    {
+                        <span class="number">@square.Number</span>
+                    }
+                    @if (_game.Board[square] is { } piece)
+                    {
+                        <div class="piece @(piece.Color == PieceColor.White ? "white" : "black") @(piece.IsKing ? "king" : "")"></div>
+                    }
+                </div>
+            }
+        }
+    </div>
+
+    <ol class="history">
+        @foreach (var move in _game.History)
+        {
+            <li>@move</li>
+        }
+    </ol>
+</main>
+
+@code {
+    private enum Mode { Computer, TwoPlayers }
+
+    private Game _game = new();
+    private Square? _selected;
+    private Mode _mode = Mode.Computer;
+    private PieceColor _humanColor = PieceColor.White;
+    private Difficulty _difficulty = Difficulty.Medium;
+    private bool _thinking;
+
+    // Le plateau est retourné quand on joue les noirs contre l'ordinateur.
+    private bool Flipped => _mode == Mode.Computer && _humanColor == PieceColor.Black;
+
+    private IEnumerable<int> Axis => Flipped
+        ? Enumerable.Range(0, Board.Size).Reverse()
+        : Enumerable.Range(0, Board.Size);
+
+    private bool IsComputerTurn =>
+        _mode == Mode.Computer && _game.Status == GameStatus.InProgress && _game.CurrentPlayer != _humanColor;
+
+    private Move? LastMove => _game.History.Count > 0 ? _game.History[^1] : null;
+
+    private IEnumerable<Move> MovesFromSelected =>
+        _selected is { } from ? _game.LegalMoves.Where(m => m.From == from) : [];
+
+    private string StatusText => _game.Status switch
+    {
+        GameStatus.WhiteWins => "Les blancs ont gagné !",
+        GameStatus.BlackWins => "Les noirs ont gagné !",
+        _ when _thinking => "L'ordinateur réfléchit…",
+        _ => (_game.CurrentPlayer == PieceColor.White ? "Aux blancs" : "Aux noirs")
+             + (_game.LegalMoves[0].IsCapture ? " — prise obligatoire" : ""),
+    };
+
+    private async Task OnSquareClicked(Square square)
+    {
+        if (_game.Status != GameStatus.InProgress || IsComputerTurn)
+            return;
+
+        // Clic sur une destination : on joue le coup.
+        // Si plusieurs rafles mènent à la même case, on prend la première.
+        if (MovesFromSelected.FirstOrDefault(m => m.To == square) is { } move)
+        {
+            _game.Play(move);
+            _selected = null;
+            await PlayComputerTurn();
+            return;
+        }
+
+        // Sinon, on sélectionne une pièce qui a au moins un coup légal.
+        _selected = _game.LegalMoves.Any(m => m.From == square) ? square : null;
+    }
+
+    private async Task PlayComputerTurn()
+    {
+        if (!IsComputerTurn)
+            return;
+
+        _thinking = true;
+        StateHasChanged();
+        // Laisse le navigateur afficher le coup du joueur avant que la recherche n'occupe le thread.
+        await Task.Delay(50);
+
+        var move = Ai.For(_difficulty).ChooseMove(_game.Board, _game.CurrentPlayer);
+        _game.Play(move);
+        _thinking = false;
+    }
+
+    private async Task NewGame()
+    {
+        _game = new Game();
+        _selected = null;
+        await PlayComputerTurn();
+    }
+
+    private string CssFor(Square square)
+    {
+        var css = square.IsDark ? "cell dark" : "cell light";
+        if (LastMove is { } last && (square == last.From || square == last.To))
+            css += " last";
+        if (square == _selected)
+            css += " selected";
+        else if (MovesFromSelected.Any(m => m.To == square))
+            css += " target";
+        else if (_selected is null && !IsComputerTurn && _game.LegalMoves.Any(m => m.From == square))
+            css += " movable";
+        return css;
+    }
+}
