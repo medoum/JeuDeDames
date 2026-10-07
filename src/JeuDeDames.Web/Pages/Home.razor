@@ -59,9 +59,14 @@
     </div>
 
     <ol class="history">
-        @foreach (var move in _game.History)
+        @* Un tour par ligne : coup blanc puis réponse noire. *@
+        @for (int i = 0; i < _game.History.Count; i += 2)
         {
-            <li>@move</li>
+            <li>
+                <span class="turn">@(i / 2 + 1).</span>
+                <span>@_game.History[i]</span>
+                <span>@(i + 1 < _game.History.Count ? _game.History[i + 1] : "")</span>
+            </li>
         }
     </ol>
 </main>

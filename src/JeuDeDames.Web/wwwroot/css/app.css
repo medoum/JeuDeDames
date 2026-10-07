@@ -230,10 +230,22 @@ body {
 .game button:disabled { opacity: .5; cursor: default; }
 
 .history {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 4px 16px;
-    padding-left: 1.5rem;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr));
+    gap: 4px 24px;
+    padding: 0;
+    list-style: none;
     font-family: ui-monospace, monospace;
     font-size: .9rem;
+}
+
+.history li {
+    display: grid;
+    grid-template-columns: 2.5rem 1fr 1fr;
+    gap: 8px;
+}
+
+.history .turn {
+    text-align: right;
+    opacity: .6;
 }
